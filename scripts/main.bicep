@@ -424,7 +424,7 @@ resource vmDataDeploy 'Microsoft.Compute/virtualMachines@2021-11-01' = {
 ////////////////////////////////////////
 ////////////////////////////////////////
 /////////                      /////////
-///////// VIRTUAL MACHINE DATA /////////
+/////////  VIRTUAL MACHINE AD  /////////
 /////////                      /////////
 ////////////////////////////////////////
 ////////////////////////////////////////
@@ -505,7 +505,7 @@ resource vmAdDeploy 'Microsoft.Compute/virtualMachines@2021-11-01' = {
 /////////////////////////////////////////
 
 resource lbWeb 'Microsoft.Network/loadBalancers@2021-05-01' = {
-  name: 'lb-web'
+  name: vmWeb.loadBalancer.Name
   location: location
   tags: tags
   sku: {
@@ -515,7 +515,7 @@ resource lbWeb 'Microsoft.Network/loadBalancers@2021-05-01' = {
   properties: {
     backendAddressPools: [
       {
-        name: 'backendPool'
+        name: vmWeb.loadBalancer.backendPoolName
       }
     ]
     frontendIPConfigurations: [
@@ -530,11 +530,11 @@ resource lbWeb 'Microsoft.Network/loadBalancers@2021-05-01' = {
     ]
     loadBalancingRules: [
       {
-        name: 'inbound-http'
+        name: vmWeb.loadBalancer.inboudRuleName
         properties: {
           backendAddressPools: [
             {
-              id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', 'lb-web', 'backendPool')
+              id: resourceId('Microsoft.Network/loadBalancers/backendAddressPools', vmWeb.loadBalancer.Name, vmWeb.loadBalancer.backendPoolName)
             }
           ]
           backendPort: 80
@@ -542,13 +542,13 @@ resource lbWeb 'Microsoft.Network/loadBalancers@2021-05-01' = {
           enableFloatingIP: false
           enableTcpReset: false
           frontendIPConfiguration: {
-            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', 'lb-web', 'ipConfig')
+            id: resourceId('Microsoft.Network/loadBalancers/frontendIPConfigurations', vmWeb.loadBalancer.Name, 'ipConfig')
           }
           frontendPort: 80
           idleTimeoutInMinutes: 4
           loadDistribution: 'Default'
           probe: {
-            id: resourceId('Microsoft.Network/loadBalancers/probes', 'lb-web', 'health-check')
+            id: resourceId('Microsoft.Network/loadBalancers/probes', vmWeb.loadBalancer.Name, vmWeb.loadBalancer.probeName)
           }
           protocol: 'Tcp'
         }
@@ -556,7 +556,7 @@ resource lbWeb 'Microsoft.Network/loadBalancers@2021-05-01' = {
     ]
     probes: [
       {
-        name: 'health-check'
+        name: vmWeb.loadBalancer.probeName
         properties: {
           intervalInSeconds: 5
           numberOfProbes: 2
@@ -569,7 +569,7 @@ resource lbWeb 'Microsoft.Network/loadBalancers@2021-05-01' = {
   }
 
   resource backendPool 'backendAddressPools' existing = {
-    name: 'backendPool'
+    name: vmWeb.loadBalancer.backendPoolName
   }
 }
 
@@ -680,7 +680,7 @@ resource runCommands 'Microsoft.Compute/virtualMachines/runCommands@2021-11-01' 
   location: location
   tags: tags
   dependsOn: [
-    vmsWeb[i]
+    vmsWeb
   ]
   parent: vmsWeb[i]
   properties: {
@@ -852,22 +852,22 @@ resource vnetSpoke02DnsLink 'Microsoft.Network/privateDnsZones/virtualNetworkLin
   }
 }
 
-// var mountStorageDrive = format('''
-// $connectTestResult = Test-NetConnection -ComputerName {2}.file.{0} -Port 445
-// if ($connectTestResult.TcpTestSucceeded) {
-//     cmd.exe /C "cmdkey /add:`"{2}.file.{0}`" /user:`"localhost\{2}`" /pass:`"{1}`""
-//     New-PSDrive -Name Z -PSProvider FileSystem -Root "\\{2}.file.{0}\share" -Persist
-// } else {
-//     Write-Error -Message "Unable to reach the Azure storage account via port 445. Check to make sure your organization or ISP is not blocking port 445, or use Azure P2S VPN, Azure S2S VPN, or Express Route to tunnel SMB traffic over a different port."
-// }
-// ''', environment().suffixes.storage, storage.listKeys().keys[0].value, storage.name)
+//  var mountStorageDrive = replace(replace(replace('''
+//  $connectTestResult = Test-NetConnection -ComputerName ##STORAGE_NAME##.file.##STORAGE_SUFFIX## -Port 445
+//  if ($connectTestResult.TcpTestSucceeded) {
+//      cmd.exe /C "cmdkey /add:`"##STORAGE_NAME##.file.##STORAGE_SUFFIX##`" /user:`"localhost\##STORAGE_NAME##`" /pass:`"##STORAGE_KEY##`""
+//      New-PSDrive -Name Z -PSProvider FileSystem -Root "\\##STORAGE_NAME##.file.##STORAGE_SUFFIX##\share" -Persist
+//  } else {
+//      Write-Error -Message "Unable to reach the Azure storage account via port 445. Check to make sure your organization or ISP is not blocking port 445, or use Azure P2S VPN, Azure S2S VPN, or Express Route to tunnel SMB traffic over a different port."
+//  }
+//  ''', '##STORAGE_NAME##', storage.name), '##STORAGE_SUFFIX##', environment().suffixes.storage), '##STORAGE_KEY##', storage.listKeys().keys[0].value)
 
 // resource runCommandsMountDriveWeb 'Microsoft.Compute/virtualMachines/runCommands@2021-11-01' = [for i in range(0, vmWeb.count): {
 //   name: '${vmsWeb[i].name}-extension-drive'
 //   location: location
 //   tags: tags
 //   dependsOn: [
-//     vmsWeb[i]
+//     vmsWeb
 //   ]
 //   parent: vmsWeb[i]
 //   properties: {

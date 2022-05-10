@@ -5,6 +5,7 @@
 # native line endings on checkout.
 *.bicep text
 *.json text
+*.png binary
 
 # Convert to LF line endings on checkout.
 *.* text eol=lf

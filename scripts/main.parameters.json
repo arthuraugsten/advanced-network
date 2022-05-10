@@ -57,7 +57,13 @@
 				"size": "Standard_B2s",
 				"diskType": "Premium_LRS",
 				"count": 2,
-				"os": "WindowsServer"
+				"os": "WindowsServer",
+				"loadBalancer": {
+					"name": "lb-web",
+					"probeName": "health-check",
+					"backendPoolName": "backendPool",
+					"inboudRuleName": "inbound-http"
+				}
 			}
 		},
 		"vmData": {
