@@ -3,9 +3,15 @@
 
 # Normalized and converts to
 # native line endings on checkout.
-*.bicep text
-*.json text
-*.png binary
+*.bicep text    eol=lf
+*.json  text    eol=lf
+
+# Binary files.
+*.png   binary
+*.jpg   binary
+
+# Convert to CRLF line endings on checkout.
+*.sln   text    eol=crlf
 
 # Convert to LF line endings on checkout.
-*.* text eol=lf
+*.sh    text    eol=lf
