@@ -1,0 +1,114 @@
+{
+	"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"tags": {
+			"value": {
+				"Laboratorio": "LAB-REDES"
+			}
+		},
+		"vnetSpoke01": {
+			"value": {
+				"name": "vnet-spoke01",
+				"nsgName": "nsg-web",
+				"addressPrefix": "10.10.0.0/16",
+				"subnets": [
+					{
+						"name": "sub-websrv",
+						"addressPrefix": "10.10.1.0/24"
+					},
+					{
+						"name": "sub-webapp",
+						"addressPrefix": "10.10.2.0/24"
+					}
+				]
+			}
+		},
+		"vnetSpoke02": {
+			"value": {
+				"name": "vnet-spoke02",
+				"nsgName": "nsg-data",
+				"addressPrefix": "172.16.0.0/16",
+				"subnets": [
+					{
+						"name": "sub-datasrv",
+						"addressPrefix": "172.16.1.0/24"
+					}
+				]
+			}
+		},
+		"vnetSpoke03": {
+			"value": {
+				"name": "vnet-spoke03",
+				"nsgName": "nsg-webapp",
+				"location": "centralus",
+				"addressPrefix": "10.20.0.0/16",
+				"subnets": [
+					{
+						"name": "sub-webapp",
+						"addressPrefix": "10.20.1.0/24"
+					}
+				]
+			}
+		},
+		"vnetHub": {
+			"value": {
+				"name": "vnet-hub",
+				"nsgName": "nsg-hub",
+				"addressPrefix": "192.168.0.0/16",
+				"subnets": [
+					{
+						"name": "sub-hub",
+						"addressPrefix": "192.168.1.0/24"
+					},
+					{
+						"name": "AzureBastionSubnet",
+						"addressPrefix": "192.168.250.0/24"
+					}
+				]
+			}
+		},
+		"vmWeb": {
+			"value": {
+				"name": "vm-web",
+				"nicName": "nic-web",
+				"size": "Standard_B2s",
+				"diskType": "Premium_LRS",
+				"count": 2,
+				"os": "WindowsServer",
+				"loadBalancer": {
+					"name": "lb-web",
+					"probeName": "health-check",
+					"backendPoolName": "backendPool",
+					"inboudRuleName": "inbound-http"
+				}
+			}
+		},
+		"vmData": {
+			"value": {
+				"name": "vm-data",
+				"nicName": "nic-data",
+				"size": "Standard_B2s",
+				"diskType": "Premium_LRS",
+				"count": 2,
+				"os": "WindowsServer"
+			}
+		},
+		"vmAD": {
+			"value": {
+				"name": "vm-ad",
+				"nicName": "nic-ad",
+				"size": "Standard_B2s",
+				"diskType": "Premium_LRS",
+				"count": 2,
+				"os": "WindowsServer"
+			}
+		},
+		"vmAdmin": {
+			"value": "admin.tftec"
+		},
+		"vmPassword": {
+			"value": "@PartiuNuvem1234!"
+		}
+	}
+}
