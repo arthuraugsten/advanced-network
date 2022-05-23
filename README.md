@@ -23,5 +23,5 @@ cd ./scripts
 Para executar com o Azure CLI, utilize uma console que suporte bash, como o git bash
 
 ```bash
-az deployment group create -g RG-LABS-TFTEC -n deploy-lab -f ./<workshop>.bicep -p @<woorkshop.parameters.json
+az deployment group create -g RG-LABS-TFTEC -n deploy-lab -f ./<workshop>.bicep -p @<workshop>.parameters.json
 ```

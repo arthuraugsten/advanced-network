@@ -12,11 +12,80 @@ param vnetSpoke01 object
 param vnetSpoke02 object
 param vnetSpoke03 object
 param vnetHub object
+param vnetOnpremise object
 param vmWeb object
 param vmData object
 param vmAD object
+param vmFW object
+param vmClient object
+param onPremRouteTable object
 param vmAdmin string
 param vmPassword string
+
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////                       /////////
+/////////     ON-PREMISES RG    /////////
+/////////                       /////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+
+// resource onPremRG 'Microsoft.Resources/resourceGroups@2021-01-01' = {
+//   name: 'rg-contoso'
+//   location: 'westus2'
+//   scope: 'subscription'
+// }
+
+
+
+/////////////////////////////////////////
+/////////////////////////////////////////
+/////////                       /////////
+/////////      ROUTE TABLES     /////////
+/////////                       /////////
+/////////////////////////////////////////
+/////////////////////////////////////////
+
+resource onPremRouteTableDeploy 'Microsoft.Network/routeTables@2021-08-01' = {
+  name: onPremRouteTable.name
+  location: onPremRouteTable.location
+  tags: tags
+  properties: {
+    disableBgpRoutePropagation: false
+    routes: [
+      {
+        name: 'route-${vnetHub.name}'
+        properties: {
+          addressPrefix: vnetHub.addressPrefix
+          hasBgpOverride: false
+          nextHopIpAddress: vmFW.privateIP
+          nextHopType: 'VirtualAppliance'
+        }
+      }
+      {
+        name: 'route-${vnetSpoke01.name}'
+        properties: {
+          addressPrefix: vnetSpoke01.addressPrefix
+          hasBgpOverride: false
+          nextHopIpAddress: vmFW.privateIP
+          nextHopType: 'VirtualAppliance'
+        }
+      }
+      {
+        name: 'route-${vnetSpoke02.name}'
+        properties: {
+          addressPrefix: vnetSpoke02.addressPrefix
+          hasBgpOverride: false
+          nextHopIpAddress: vmFW.privateIP
+          nextHopType: 'VirtualAppliance'
+        }
+      }
+    ]
+  }
+}
+
+
+
 
 /////////////////////////////////////////
 /////////////////////////////////////////
@@ -232,6 +301,34 @@ resource vnetHubDeploy 'Microsoft.Network/virtualNetworks@2021-05-01' = {
 
   resource subnetBastion 'subnets' existing = {
     name: vnetHub.subnets[1].name
+  }
+}
+
+resource vnetOnpremiseDeploy 'Microsoft.Network/virtualNetworks@2021-05-01' = {
+  name: vnetOnpremise.name
+  location: vnetOnpremise.location
+  tags: tags
+  properties: {
+    addressSpace: {
+      addressPrefixes: [
+        vnetOnpremise.addressPrefix
+      ]
+    }
+    subnets: [
+      {
+        name: vnetOnpremise.subnets[0].name
+        properties: {
+          addressPrefix: vnetOnpremise.subnets[0].addressPrefix
+          routeTable: {
+            id: onPremRouteTableDeploy.id
+          }
+        }
+      }
+    ]
+  }
+
+  resource subnet 'subnets' existing = {
+    name: vnetOnpremise.subnets[0].name
   }
 }
 
@@ -727,6 +824,182 @@ resource runCommands 'Microsoft.Compute/virtualMachines/runCommands@2021-11-01' 
 } ]
 
 
+////////////////////////////////////////
+////////////////////////////////////////
+/////////                      /////////
+/////////  VIRTUAL MACHINE FW  /////////
+/////////                      /////////
+////////////////////////////////////////
+////////////////////////////////////////
+
+resource nicFw 'Microsoft.Network/networkInterfaces@2021-08-01' = {
+  name: vmFW.nicName
+  location: vmFW.location
+  tags: tags
+  properties: {
+    enableIPForwarding: true
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          subnet: {
+            id: vnetOnpremiseDeploy::subnet.id
+          }
+          privateIPAllocationMethod: 'Static'
+          privateIPAddress: vmFW.privateIP
+        }
+      }
+    ]
+  }
+}
+
+resource vmFwDeploy 'Microsoft.Compute/virtualMachines@2021-11-01' = {
+  name: vmFW.name
+  location: vmFW.location
+  tags: tags
+  properties: {
+    hardwareProfile: {
+      vmSize: vmFW.size
+    }
+    storageProfile: {
+      osDisk: {
+        createOption: 'FromImage'
+        managedDisk: {
+          storageAccountType: vmFW.diskType
+        }
+      }
+      imageReference: {
+        publisher: 'MicrosoftWindowsServer'
+        offer: 'WindowsServer'
+        sku: '2019-datacenter'
+        version: 'latest'
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        {
+          id: nicFw.id
+        }
+      ]
+    }
+    osProfile: {
+      computerName: vmFW.name
+      adminUsername: vmAdmin
+      adminPassword: vmPassword
+      windowsConfiguration: {
+        enableAutomaticUpdates: true
+        provisionVMAgent: true
+        patchSettings: {
+          enableHotpatching: false
+          patchMode: 'AutomaticByOS'
+        }
+      }
+    }
+  }
+}
+
+resource runCommandsFirewallFW 'Microsoft.Compute/virtualMachines/runCommands@2021-11-01' = {
+  name: '${vmFwDeploy.name}-disable-firewall'
+  location: vmFW.location
+  tags: tags
+  parent: vmFwDeploy
+  properties: {
+    asyncExecution: true
+    source: {
+      script: scriptDisableWindowsFirewall
+    }
+    timeoutInSeconds: 180
+  }
+}
+
+
+
+////////////////////////////////////////////
+////////////////////////////////////////////
+/////////                          /////////
+/////////  VIRTUAL MACHINE CLIENT  /////////
+/////////                          /////////
+////////////////////////////////////////////
+////////////////////////////////////////////
+
+resource nicClient 'Microsoft.Network/networkInterfaces@2021-03-01' = {
+  name: vmClient.nicName
+  location: vmClient.location
+  tags: tags
+  properties: {
+    ipConfigurations: [
+      {
+        name: 'ipconfig1'
+        properties: {
+          subnet: {
+            id: vnetOnpremiseDeploy::subnet.id
+          }
+          privateIPAllocationMethod: 'Dynamic'
+        }
+      }
+    ]
+  }
+}
+
+resource vmClientDeploy 'Microsoft.Compute/virtualMachines@2021-11-01' = {
+  name: vmClient.name
+  location: vmClient.location
+  tags: tags
+  properties: {
+    hardwareProfile: {
+      vmSize: vmClient.size
+    }
+    storageProfile: {
+      osDisk: {
+        createOption: 'FromImage'
+        managedDisk: {
+          storageAccountType: vmClient.diskType
+        }
+      }
+      imageReference: {
+        publisher: 'microsoftwindowsdesktop'
+        offer: 'windows-11'
+        sku: 'win11-21h2-pro'
+        version: 'latest'
+      }
+    }
+    networkProfile: {
+      networkInterfaces: [
+        {
+          id: nicClient.id
+        }
+      ]
+    }
+    osProfile: {
+      computerName: vmClient.name
+      adminUsername: vmAdmin
+      adminPassword: vmPassword
+      windowsConfiguration: {
+        enableAutomaticUpdates: true
+        provisionVMAgent: true
+        patchSettings: {
+          enableHotpatching: false
+          patchMode: 'AutomaticByOS'
+        }
+      }
+    }
+  }
+}
+
+resource runCommandsFirewallClient 'Microsoft.Compute/virtualMachines/runCommands@2021-11-01' = {
+  name: '${vmClientDeploy.name}-disable-firewall'
+  location: vmClient.location
+  tags: tags
+  parent: vmClientDeploy
+  properties: {
+    asyncExecution: true
+    source: {
+      script: scriptDisableWindowsFirewall
+    }
+    timeoutInSeconds: 180
+  }
+}
+
 
 
 /////////////////////////////////////////
@@ -770,7 +1043,7 @@ resource asp02Deploy 'Microsoft.Web/serverfarms@2021-03-01' = {
 
 resource webApp01Deploy 'Microsoft.Web/sites@2021-03-01' = {
   name: 'webapp-${uniqueString(subscription().subscriptionId)}-01'
-  location: location
+  location: 'centralus'
   tags: tags
   properties: {
     clientAffinityEnabled: false
@@ -792,11 +1065,11 @@ resource webApp01Deploy 'Microsoft.Web/sites@2021-03-01' = {
           priority: 300
           tag: 'ServiceTag'
           ipAddress: 'AzureFrontDoor.Backend'
-          headers: {
-            'X-Azure-FDID': [
-              '1234' //<FrontDoor ID>
-            ]
-          }
+          // headers: {
+          //   'X-Azure-FDID': [
+          //     '1234' //<FrontDoor ID>
+          //   ]
+          // }
         }
       ]
       linuxFxVersion: 'DOTNETCORE|6.0'
@@ -829,11 +1102,11 @@ resource webApp02Deploy 'Microsoft.Web/sites@2021-03-01' = {
           priority: 300
           tag: 'ServiceTag'
           ipAddress: 'AzureFrontDoor.Backend'
-          headers: {
-            'X-Azure-FDID': [
-              '1234' //<FrontDoor ID>
-            ]
-          }
+          // headers: {
+          //   'X-Azure-FDID': [
+          //     '1234' //<FrontDoor ID>
+          //   ]
+          // }
         }
       ]
       linuxFxVersion: 'DOTNETCORE|6.0'

@@ -68,6 +68,19 @@
 				]
 			}
 		},
+		"vnetOnpremise": {
+			"value": {
+				"name": "vnet-onpremises",
+				"location": "southcentralus",
+				"addressPrefix": "10.50.0.0/16",
+				"subnets": [
+					{
+						"name": "sub-onpremises",
+						"addressPrefix": "10.50.1.0/24"
+					}
+				]
+			}
+		},
 		"vmWeb": {
 			"value": {
 				"name": "vm-web",
@@ -86,22 +99,44 @@
 		},
 		"vmData": {
 			"value": {
-				"name": "vm-data",
-				"nicName": "nic-data",
+				"name": "vm-data01",
+				"nicName": "nic-data01",
 				"size": "Standard_B2s",
-				"diskType": "Premium_LRS",
-				"count": 2,
-				"os": "WindowsServer"
+				"diskType": "Premium_LRS"
 			}
 		},
 		"vmAD": {
 			"value": {
-				"name": "vm-ad",
-				"nicName": "nic-ad",
+				"name": "vm-ad01",
+				"nicName": "nic-ad01",
+				"size": "Standard_B2s",
+				"diskType": "Premium_LRS"
+			}
+		},
+		"vmFW": {
+			"value": {
+				"name": "vm-fw01",
+				"location": "southcentralus",
+				"nicName": "nic-fw01",
 				"size": "Standard_B2s",
 				"diskType": "Premium_LRS",
-				"count": 2,
-				"os": "WindowsServer"
+				"privateIP": "10.50.1.4"
+			}
+		},
+
+		"vmClient": {
+			"value": {
+				"name": "client01",
+				"location": "southcentralus",
+				"nicName": "nic-client01",
+				"size": "Standard_B2s",
+				"diskType": "Premium_LRS"
+			}
+		},
+		"onPremRouteTable": {
+			"value": {
+				"name": "rtable-onpremises",
+				"location": "southcentralus"
 			}
 		},
 		"vmAdmin": {
